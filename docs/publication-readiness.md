@@ -2,8 +2,8 @@
 
 Repo:          3shn/ems-edge
 Posture:       build-in-the-open, decided 2026-09-09
-Current state: **private.** Flipping to public is the operator's action, not a
-               consequence of this document.
+Current state: **public since 2026-09-09.** The blockers below were closed
+               first; what remains open is listed as open.
 
 This uses the project's own check vocabulary deliberately: `PASS`, `FAIL`,
 `NOT_RUN`. A row that says `NOT_RUN` means nobody has run it, not that it is
@@ -23,15 +23,36 @@ Executed local checks over the tracked tree and reachable history.
 | Proprietary blobs committed | tree inspection | PASS | none. Rockchip loaders are fetched at build time, never committed |
 | Licence coverage stated | `LICENSE`, `NOTICE` | PASS | Apache-2.0 core; GPL-2.0 and EPL-2.0 components mapped in `NOTICE` |
 
-## Blocking before public
+## Blockers — closed 2026-09-09, before the repo went public
+
+| Item | State | Evidence |
+|---|---|---|
+| **Fork-PR privilege exclusion** | PASS | Workflow uses `pull_request`, never `pull_request_target`, so fork code runs with a read-only token and no secrets. No self-hosted runners. Default workflow token set to `read`; `can_approve_pull_request_reviews=false`. Fork-PR approval policy raised from `first_time_contributors` to **`all_external_contributors`** — every fork PR needs a human before any workflow runs. `actions/checkout` pinned to commit `fbc6f39` (v5.1.0), not a tag. |
+| **The gate can actually fail** | PASS | Both directions executed. Positive: run `34337181851`, three mandatory jobs `success`, gate `success`. Negative: run `34337282653`, a planted board literal made `board-lint` and `board-lint control` fail and the gate reported `failure`. Mutation binding: pre `e69de29bb2d1d6434b8b29ae775ad8c2e48c5391` → post `7f050200caceaa8643e918eb43b32c94766d08da`, hashes compared and differing. Control branch and PR #1 closed and deleted. |
+| **Secret scanning + push protection** | PASS | Both `enabled` via the API and read back. Note the pre-commit `gitleaks` hook is local and advisory — it gates nothing a contributor does; these do. |
+| **Branch protection on `main`** | PASS | `gate` required and `strict`; force pushes and deletions blocked; conversation resolution required. `enforce_admins` is **false** deliberately, so the maintainer can still push directly on a solo project — that is a stated weakening, not an oversight. |
+
+## Still open
 
 | Item | State | What would settle it |
 |---|---|---|
-| **Fork-PR privilege exclusion** | NOT_RUN | There is no CI yet. Public means untrusted contributors can propose workflow runs, so *before* a pipeline exists publicly, every privileged job must be gated on a same-repo condition and fork-excluded jobs reported `excluded-by-policy`, never as verified. This is the single largest new attack surface that going public creates. |
-| **Secret-scanning + push protection** | NOT_RUN | Enable both in repository settings once public (free for public repos). The pre-commit `gitleaks` hook is local and advisory; it is not a gate on anyone else's contribution. |
-| **Branch protection on `main`** | NOT_RUN | Currently none, and history was force-pushed today, which protection would have blocked. Decide the rule before inviting contributors, not after. |
-| **GPL corresponding-source mechanism** | NOT_RUN | We will ship GPL-2.0 kernel and U-Boot binaries. §3(a) accompanying source or §3(b) a written offer valid three years. Neither exists. This is unconditional on shipping, independent of publication, and is currently specified but not built. |
-| **Employer-IP boundary** | NOT_RUN | The project originated in a commercial EMS context and is now designated a post-exit personal asset. Whether any of it is employer work product is a question the operator answers, not this repository. Shipped bytes belong to whoever they belong to; a change of posture does not move that line. Recorded here because it is the one item no technical check can close. |
+| **GPL corresponding-source mechanism** | NOT_RUN | We will ship GPL-2.0 kernel and U-Boot binaries. §3(a) accompanying source or §3(b) a written offer valid three years. Specified in `spec.md`, built nowhere. Unconditional on shipping and independent of publication. |
+| **Employer-IP boundary** | NOT_RUN | The project began in a commercial EMS context and is now designated a post-exit personal asset. Raised before the transfer and reaffirmed by the operator; proceeding on that decision. No technical check can close this one, and publication does not settle it. |
+| **"Zero diffs outside `boards/**`" is unproven** | NOT_RUN | One profile cannot falsify the claim the repository exists to make. A second profile with a genuinely different flash path (Sige5: mainline U-Boot, no maskrom) would. Until then the README describes it as the design intention, which is what it is. |
+
+## Defects found while doing this, kept because they are the useful part
+
+1. **`NOTICE` tripped the board-lint denylist.** It names `rk3576_spl_loader` and
+   `rk3576_idblock`, which a licence file must do. The rule targets code that
+   would have to change for a new board; prose does not. Prose is now exempt,
+   consistent with `docs/` already being exempt.
+2. **The guard could not see untracked files.** `git grep` searches tracked
+   files by default, so a newly written, unstaged file carrying a board literal
+   passed. The control did not catch it because every case staged its victim
+   with `git add -N` — a path real usage does not take. Fixed with
+   `--untracked`, plus a regression case that plants an unstaged victim.
+   A control that only exercises paths the code already handles is the failure
+   mode the control exists to prevent, one level up.
 
 ## Deliberately not blocking
 
