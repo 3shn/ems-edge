@@ -77,13 +77,52 @@ jobs:
           git config user.email ci@localhost
           ./ci/check-partitions-control.sh
 
+  identity:
+    name: author identity
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0        # the check reads every commit, not just HEAD
+      - name: every commit is authored under the personal identity
+        run: ./ci/check-identity.sh
+      - name: control
+        run: ./ci/check-identity-control.sh
+
+  # Kernel build. Runs only when the GPL-2.0 source is published somewhere this
+  # workflow can fetch it; until then it is NOT_RUN with the gate named below,
+  # never a silent skip that reads as a pass.
+  #
+  # No board is named here on purpose -- the workflow iterates boards/*/ like
+  # every other consumer. board-lint would reject a board literal in this file,
+  # which is the guard doing its job on the CI definition itself.
+  kernel:
+    name: kernel build
+    if: vars.BSP_KERNEL_URL != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: toolchain
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu flex bison bc \
+            libssl-dev libelf-dev python3-yaml
+      - name: build every board's kernel
+        env:
+          BSP_KERNEL_URL: ${{ vars.BSP_KERNEL_URL }}
+        run: |
+          for b in boards/*/; do
+            ./os/build-kernel.sh --board "$(basename "$b")" --jobs "$(nproc)"
+          done
+
   # The gate exists because a warning job that exits 0 is not execution. This
   # reads the actual results of the jobs it names; it cannot be satisfied by a
   # job that merely ran and said something reassuring.
   gate:
     name: gate
     if: always()
-    needs: [board-lint, board-lint-control, record-integrity-control, partitions]
+    needs: [board-lint, board-lint-control, record-integrity-control, partitions, identity, kernel]
     runs-on: ubuntu-24.04
     steps:
       - name: verdict
@@ -92,7 +131,7 @@ jobs:
         run: |
           echo "$RESULTS"
           fail=0
-          for job in board-lint board-lint-control record-integrity-control partitions; do
+          for job in board-lint board-lint-control record-integrity-control partitions identity; do
             r=$(printf '%s' "$RESULTS" | python3 -c \
               "import json,sys;print(json.load(sys.stdin)['$job']['result'])")
             case "$r" in
@@ -102,6 +141,22 @@ jobs:
               *) printf '  %-28s FAIL (%s)\n' "$job" "$r"; fail=1 ;;
             esac
           done
+          # The kernel build is mandatory only once its source is published.
+          # Reported either way: a job nobody mentions reads as a job nobody needs.
+          k='${{ needs.kernel.result }}'
+          if [ -n "${{ vars.BSP_KERNEL_URL }}" ]; then
+            case "$k" in
+              success) printf '  %-28s PASS\n' kernel ;;
+              *) printf '  %-28s FAIL (%s)\n' kernel "$k"; fail=1 ;;
+            esac
+          else
+            printf '  %-28s NOT_RUN\n' kernel
+            echo "      gate: repository variable BSP_KERNEL_URL is unset."
+            echo "      The GPL-2.0 kernel source is not published anywhere this"
+            echo "      workflow can fetch it. Not a pass and not a gap: it is a"
+            echo "      check that has not executed."
+          fi
+
           if [ $fail -ne 0 ]; then
             echo
             echo "GATE: NEGATIVE -- a mandatory job did not execute successfully."
