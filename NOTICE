@@ -1,0 +1,33 @@
+ems-edge
+Copyright 2026 3shn
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This repository is a *mixed-licence* tree by design. The Apache-2.0 licence
+above covers the hardware-agnostic core: build tooling, board-profile schema,
+CI checks, provisioning and fleet scripts. Components with a different licence
+carry it in their own directory, and their licence governs there:
+
+  boards/**/kernel.yaml, bsp/**    Linux kernel and U-Boot are GPL-2.0. Our
+                                   config fragments and patches to them are
+                                   GPL-2.0 as derived works. Shipping a kernel
+                                   binary obliges us to provide the complete
+                                   corresponding source to whoever receives the
+                                   device — see docs/gpl-compliance.md.
+
+  apps/openems/bundles/**          OpenEMS device drivers are EPL-2.0, matching
+                                   upstream OpenEMS Edge, so they can be
+                                   contributed upstream. EPL-2.0 is weak,
+                                   file-level copyleft; it does not reach the
+                                   Apache-2.0 core.
+
+Not redistributed here, and deliberately absent:
+
+  Rockchip loader binaries (rk3576_spl_loader, rk3576_idblock) are proprietary
+  vendor blobs under Rockchip's own terms. They are fetched at build time from
+  the vendor delivery, never committed.
+
+  Board vendor documentation, schematics and mechanical files are the vendor's
+  copyright and are not redistributable. Facts derived from them (port counts,
+  device-tree node names) are recorded in board profiles with attribution;
+  the source documents are not included.
