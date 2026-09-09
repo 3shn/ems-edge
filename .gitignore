@@ -2,3 +2,5 @@
 *.img
 *.log
 /build/
+__pycache__/
+*.py[cod]
