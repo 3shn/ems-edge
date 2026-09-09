@@ -19,12 +19,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-board=""; jobs="$(nproc)"; out="build"
+board=""; jobs="$(nproc)"; out="build"; config_only=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --board) board="$2"; shift 2 ;;
     --jobs)  jobs="$2";  shift 2 ;;
     --out)   out="$2";   shift 2 ;;
+    # Validate that the config delta lands, without the compile. This is the
+    # part that actually catches a silently-dropped fragment, it needs no cross
+    # toolchain, and it runs in seconds instead of tens of minutes -- so it is
+    # worth having as its own check rather than only as a build prelude.
+    --config-only) config_only=1; shift ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
 done
@@ -116,6 +121,12 @@ while read -r line; do
   fi
 done < "$profile/fragments/ems-edge.config"
 [ $missing -eq 0 ] || { echo "config delta did not apply -- refusing to build" >&2; exit 6; }
+
+if [ "$config_only" -eq 1 ]; then
+  echo
+  echo "config-only: delta verified, compile skipped by request"
+  exit 0
+fi
 
 echo
 echo "building with -j$jobs ..."
