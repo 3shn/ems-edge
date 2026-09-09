@@ -1,0 +1,30 @@
+# EPC-TL3576-ME — Tronlong industrial box, RK3576J.
+#
+# Identified 2026-09-09 from a photograph of the I/O panel of the unit on the
+# bench. Four LAN ports is unique to -ME across the family: -N, -BU and -MU all
+# carry two. The panel also shows 4 × RS-485 (one muxed with RS-232) and
+# 2 × CAN FD, which matches -ME and rules out -MU (8 × RS-485).
+id: epc-tl3576-me
+model: EPC-TL3576-ME
+vendor: Tronlong
+composition: SBC-TL3576 + EX-TLMultiETH expansion board + enclosure
+soc: rk3576j
+arch: arm64
+support: bring-up            # bring-up | supported | deprecated
+
+identity:
+  # The vendor bootloader picks one of four DTBs by reading SARADC channel 7 —
+  # a resistor divider on the expansion board. We do not trust that for
+  # identity. Provisioning reads the model string from the booted unit and
+  # refuses the unit if it does not equal `model` above. A resistor is not an
+  # identity: swap the expansion board and the box silently becomes a
+  # different machine.
+  saradc_ch7_mv: 1220
+  dtb: epc-tl3576-me
+  assert_model_string: "EPC-TL3576-ME"
+
+evidence:
+  panel_photo: "2026-09-09, operator, bench unit — 4×LAN, 4×RS-485, 2×CAN FD"
+  vendor_spec: "EPC-TL3576 规格书 表 2 and §7"
+  vendor_dts: "linux-6.1.141-v2.1-gfbd1d38 arch/arm64/boot/dts/rockchip/epc-tl3576-me.dts"
+  on_unit: NOT_RUN           # nothing here has been confirmed from /proc/device-tree

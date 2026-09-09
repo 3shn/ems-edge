@@ -1,0 +1,135 @@
+# I/O map for EPC-TL3576-ME.
+#
+# Every entry carries its evidence class, because these facts came from three
+# sources of unequal weight and the differences matter:
+#
+#   panel        — read off a photograph of the unit's own I/O panel. This is
+#                  the artefact, and it is what a field engineer will wire to.
+#   vendor-spec  — the datasheet. Says what the vendor documents.
+#   vendor-dts   — the DTS in the delivered kernel tree. Says what the vendor's
+#                  kernel binds. It already disagrees with the datasheet on port
+#                  counts, so it is not authoritative on its own either.
+#   on-unit      — read from /proc/device-tree on the booted board. NOTHING here
+#                  has this yet, which is why every device node below is null.
+#
+# Rule for this file: a device node is written only when it came from on-unit.
+# Guessing `/dev/ttyS3` from a datasheet is how a probe suite passes against the
+# wrong port.
+
+rs485:
+  # Four isolated RS-485, panel order. Port 1 is muxed with RS-232 and ships
+  # configured as RS-485 (vendor default).
+  - id: rs485_1
+    panel: "RS-485/RS-232 block: A1/T1, B1/R1, G1"
+    isolated: true
+    muxed_with: rs232_1
+    device: null            # on-unit NOT_RUN
+    evidence: [panel, vendor-spec]
+  - id: rs485_2
+    panel: "RS-485/RS-232 block: A2, B2, G2"
+    isolated: true
+    device: null
+    evidence: [panel, vendor-spec]
+  - id: rs485_3
+    panel: "RS-485 block: A3, B3, G3"
+    isolated: true
+    device: null
+    evidence: [panel]
+  - id: rs485_4
+    panel: "RS-485 block: A4, B4, G4"
+    isolated: true
+    device: null
+    evidence: [panel]
+
+rs232:
+  - id: rs232_1
+    panel: "A1/T1 = TX, B1/R1 = RX, G1"
+    isolated: true
+    muxed_with: rs485_1     # cannot use both at once
+    device: null
+    evidence: [panel, vendor-spec]
+
+can:
+  - id: can_1
+    panel: "CAN FD block: H1, L1, G1"
+    isolated: true
+    fd: true
+    device: null            # expect canX; vendor-dts has can0/can1 rockchip,rk3576-canfd
+    evidence: [panel, vendor-dts]
+  - id: can_2
+    panel: "CAN FD block: H2, L2, G2"
+    isolated: true
+    fd: true
+    device: null
+    evidence: [panel, vendor-dts]
+
+lan:
+  # Four RJ45. The datasheet says 2 × gigabit + 2 × 100M for this variant, and
+  # can reach 5 ports (3 GbE + 2 FE) with optional components fitted — a build
+  # option, so a profile fact, not a runtime one.
+  #
+  # UNRESOLVED and it matters for northbound/southbound separation: which
+  # physical socket is gigabit. The vendor DTS enables gmac0 and gmac1 only, so
+  # the other two arrive by a path not visible in the delivered device tree.
+  # Do not assign roles until this is read on the unit.
+  - { id: lan1, panel: LAN1, speed: null, device: null, evidence: [panel] }
+  - { id: lan2, panel: LAN2, speed: null, device: null, evidence: [panel] }
+  - { id: lan3, panel: LAN3, speed: null, device: null, evidence: [panel] }
+  - { id: lan4, panel: LAN4, speed: null, device: null, evidence: [panel] }
+
+di_do:
+  # The datasheet gives 4 × DI and 4 × DO for -ME. No DI/DO terminals appear on
+  # the photographed face, so they are on the opposite end of the enclosure.
+  # Declared here so the probe suite knows to expect them; unverified, so the
+  # probe suite must not yet assert on them.
+  di_count: 4
+  do_count: 4
+  evidence: [vendor-spec]
+  status: UNVERIFIED
+
+watchdog:
+  # External, GPIO-toggled, and it cannot be switched off. This is the single
+  # hardest constraint on this board: userspace must toggle a GPIO at least once
+  # a second, from boot, forever, or the board resets.
+  kind: gpio
+  compatible: "linux,wdt-gpio"
+  algorithm: toggle
+  margin_ms: 1000
+  always_running: true
+  evidence: [vendor-dts]
+  implications:
+    - "OS update lane must keep feeding it across the whole switch."
+    - "The feeder sits on the host, outside the container runtime."
+    - "It must never be behind the JVM: a GC pause is a reset."
+
+rtc:
+  chip: hym8563
+  device: null
+  evidence: [vendor-dts]
+
+usb:
+  - { id: usb1, panel: "USB 3.2 type-A", evidence: [panel] }
+  - { id: usb2, panel: "USB 3.2 type-A", evidence: [panel] }
+  - { id: usb3, panel: "USB 3.2 / DP type-C", evidence: [panel] }
+
+console:
+  panel: "DEBUG, USB-C"
+  device: null
+  evidence: [panel]
+
+power:
+  panel: "9-36 Vdc, GND, chassis earth"
+  evidence: [panel]
+
+quirks:
+  - id: adc-board-identity
+    note: >
+      The bootloader selects the device tree from a SARADC channel 7 resistor
+      divider on the expansion board. Changing the expansion board changes what
+      the box is, silently. Provisioning asserts the model string instead.
+  - id: dts-undercounts-panel
+    note: >
+      The delivered DTS enables fewer UARTs and fewer MACs than the panel
+      exposes. Either the expansion board's ports arrive by a path absent from
+      these sources, or the shipped DTB differs from the published tree.
+      Unresolved; close it from /proc/device-tree on the unit.

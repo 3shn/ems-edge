@@ -1,0 +1,24 @@
+power:
+  input: "9-36 Vdc"
+  evidence: [panel]
+
+storage:
+  emmc: true
+  endurance_budget: null      # not yet specified; drives log/write policy
+  note: >
+    Field life is measured in years and the device is unattended. Write volume
+    is a design constraint, not an afterthought — see the BLK_DEV_THROTTLING
+    entry in the kernel fragment.
+
+thermal:
+  grade: null                 # vendor offers -I (industrial) SKUs; ours unconfirmed
+  evidence: []
+
+security_tier:
+  current: keys-on-emmc
+  available_now: optee-and-otp
+  note: >
+    Better than assumed. The shipped kernel already has CONFIG_TEE, CONFIG_OPTEE,
+    CONFIG_TCG_TPM, CONFIG_NVMEM_ROCKCHIP_OTP and CONFIG_NVMEM_ROCKCHIP_EFUSE,
+    plus HW_RANDOM_ROCKCHIP and HW_RANDOM_OPTEE — which on-device key generation
+    depends on and which nothing had named.

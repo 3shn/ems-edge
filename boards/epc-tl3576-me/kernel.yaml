@@ -1,0 +1,26 @@
+# We build our own kernel. Not a reproducibility exercise: the vendor's shipped
+# configuration is missing options this platform requires. Established by
+# extracting the config from the shipped boot.img via CONFIG_IKCONFIG_PROC —
+# see the spike record in the planning repo.
+source:
+  kind: vendor-tarball
+  file: linux-6.1.141-v2.1-gfbd1d38.tar.gz
+  version: "6.1.141"
+  sha256: 589fbbc64b50301dad3f4b4cfa0788edece6f19f7ee9fd2b489426291b5889f3
+  license: GPL-2.0            # we must offer this source to whoever receives a device
+
+config_fragments:
+  # Applied in order. The vendor ships the docker fragment in its own tree and
+  # did not apply it to the binary they delivered.
+  - arch/arm64/configs/rockchip_linux_defconfig
+  - arch/arm64/configs/rockchip_linux_docker.config
+  - fragments/ems-edge.config
+
+boot_artifacts:
+  boot: boot.img
+  boot_rt: boot-rt.img        # PREEMPT_RT variant, not used yet
+
+reference:
+  # The vendor's prebuilt boot.img, kept only to diff against ours.
+  vendor_boot_img_sha256: 792d09c993c76c87a2c56134031c752048e3e447617ea4913029c05efa3a70c8
+  vendor_config_sha256: 56456d498ef18de6b9d61847282f3406fadbd4a3996a244ef3b527ca3a13a235

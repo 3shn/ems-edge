@@ -1,0 +1,13 @@
+method: rockchip-maskrom
+tool: rkdeveloptool
+loader:
+  spl: rk3576_spl_loader_v1.12.108.bin
+  idblock: rk3576_idblock_v1.12.108.img
+  uboot: uboot.img
+  license: proprietary        # Rockchip blobs; fetched from the vendor delivery,
+                              # never committed to this repository
+uboot_source:
+  file: u-boot-2017.09-v2.1-g02b3455.tar.gz
+  version: "2017.09"
+  license: GPL-2.0            # source must be offered with any shipped binary
+partition_table: null         # see README.md — not yet derived
