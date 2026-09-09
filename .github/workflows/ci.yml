@@ -1,0 +1,109 @@
+name: ci
+
+# Public repository. Two rules follow from that and are load-bearing:
+#
+#   1. `pull_request` (never `pull_request_target`) so a fork's code runs with a
+#      read-only token and no access to secrets. `pull_request_target` runs the
+#      BASE workflow with write permissions in the context of untrusted code,
+#      which is the standard way this goes wrong.
+#   2. No self-hosted runners, ever, while this repo is public. A fork PR would
+#      execute arbitrary code on that machine.
+#
+# Anything needing more than read access is gated on the PR originating from
+# this repository, and is reported excluded-by-policy for forks -- excluded is
+# neither a pass nor a gap, and never counts toward a verified verdict.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A superseding run cancels the run you are waiting on, documentation pushes
+# included. Never cancel on main: that is the gate a merge depends on.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  board-lint:
+    name: board-lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: HAL guard
+        run: ./ci/board-lint.sh
+
+  board-lint-control:
+    name: board-lint control
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: identity for index operations
+        run: |
+          git config user.name ci
+          git config user.email ci@localhost
+      - name: exercise every rule in both directions
+        run: ./ci/board-lint-control.sh
+
+  record-integrity-control:
+    name: record-integrity control
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: identity for index operations
+        run: |
+          git config user.name ci
+          git config user.email ci@localhost
+      - name: exercise every rule in both directions
+        run: ./.claude/hooks/record-integrity-control.sh
+
+  # The gate exists because a warning job that exits 0 is not execution. This
+  # reads the actual results of the jobs it names; it cannot be satisfied by a
+  # job that merely ran and said something reassuring.
+  gate:
+    name: gate
+    if: always()
+    needs: [board-lint, board-lint-control, record-integrity-control]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: verdict
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          fail=0
+          for job in board-lint board-lint-control record-integrity-control; do
+            r=$(printf '%s' "$RESULTS" | python3 -c \
+              "import json,sys;print(json.load(sys.stdin)['$job']['result'])")
+            case "$r" in
+              success) printf '  %-28s PASS\n' "$job" ;;
+              skipped) printf '  %-28s NOT_RUN (skipped)\n' "$job"; fail=1 ;;
+              cancelled) printf '  %-28s NOT_RUN (cancelled)\n' "$job"; fail=1 ;;
+              *) printf '  %-28s FAIL (%s)\n' "$job" "$r"; fail=1 ;;
+            esac
+          done
+          if [ $fail -ne 0 ]; then
+            echo
+            echo "GATE: NEGATIVE -- a mandatory job did not execute successfully."
+            echo "A skipped or cancelled job is NOT_RUN, which blocks a verdict;"
+            echo "it is not evidence that anything passed."
+            exit 1
+          fi
+          echo
+          echo "GATE: POSITIVE -- every mandatory job executed and succeeded."
+
+  fork-policy:
+    name: fork policy notice
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ubuntu-24.04
+    steps:
+      - name: report exclusion
+        run: |
+          echo "This PR is from a fork. Jobs requiring write access or secrets are"
+          echo "excluded-by-policy (untrusted code must not run with a privileged"
+          echo "credential). Excluded is neither a pass nor a gap and does not count"
+          echo "toward a verified verdict. The checks above ran with a read-only"
+          echo "token and are real."

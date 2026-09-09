@@ -58,6 +58,27 @@ run_case 2 'open /dev/ttyUSB0 at 9600 8N1' \
 run_case 3 'flash with rkdeveloptool db loader.bin' \
            'contains a board/SoC literal'
 
+# Regression. Every case above stages its victim with `git add -N`, and that is
+# not how a violation actually arrives -- someone writes a new file and has not
+# staged it yet. `git grep` searches tracked files by default, so the guard was
+# blind to exactly that path while this control reported all-pass. Found
+# 2026-09-09 by hand; it belongs here so it cannot come back.
+echo "== rule 3, UNSTAGED victim: must still be CAUGHT =="
+cleanup
+printf 'flash with rkdeveloptool db loader.bin\n' > "$VICTIM"
+if git check-ignore -q "$VICTIM"; then
+  echo "    FAIL (victim is gitignored -- this test proves nothing)"; fail=1
+else
+  out=$(./ci/board-lint.sh 2>&1); got=$?
+  if [ $got -ne 0 ] && printf '%s' "$out" | grep -qF 'contains a board/SoC literal'; then
+    echo "    PASS (exit $got, caught without ever being staged)"
+  else
+    echo "    FAIL (exit $got -- the guard only sees staged or tracked files)"
+    printf '%s\n' "$out" | sed 's/^/      | /'; fail=1
+  fi
+fi
+cleanup
+
 echo "== cleanup =="
 cleanup
 [ $fail -eq 0 ] && echo "CONTROL: all cases PASS" || echo "CONTROL: FAILED"
