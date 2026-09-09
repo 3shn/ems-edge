@@ -1,0 +1,38 @@
+# Partition table for EPC-TL3576-ME. A/B from day one (operator ruling
+# 2026-09-09). Derived from the vendor SDK's own A/B table at
+# device/rockchip/.chips/rk3576/parameter-ab.txt, with two deliberate changes.
+# Sizes and offsets are in 512-byte sectors.
+#
+# CHANGE 1 — boot slots made symmetric at 128 MiB.
+#   The vendor's A/B table carves boot_a at 0x20000 (64 MiB) and boot_b at
+#   0x40000 (128 MiB). That asymmetry is a trap: the vendor's own boot.img is
+#   59,577,344 bytes, which is 89% of boot_a and 44% of boot_b. Our kernel is
+#   larger than the vendor's by construction — we add device-mapper, dm-verity,
+#   AppArmor and VLAN — so a build can plausibly fit slot B and overflow slot A.
+#   The failure mode is an update that succeeds on one slot and fails on the
+#   other, which is the worst possible shape for an A/B system: it looks like a
+#   flaky unit rather than a sizing error.
+#
+# CHANGE 2 — system slots reduced from 7 GiB to 4 GiB each.
+#   The vendor sizes for a desktop Ubuntu with a GUI. Ours is a Debian minimal
+#   rootfs plus a container runtime, where the space that matters is userdata
+#   (container images, store-and-forward buffers), not the read-mostly system
+#   slot. The vendor layout consumes 14.36 GiB before userdata, which does not
+#   fit a 16 GB eMMC at all — the smallest SKU this box ships with. This layout
+#   consumes 8.42 GiB, leaving roughly 6 GiB of userdata on a 16 GB part.
+#
+# Verified by ci/check-partitions.py: no gaps, no overlaps, symmetric slots,
+# and the whole table fits the smallest supported eMMC.
+
+FIRMWARE_VER: 1.0
+MACHINE_MODEL: RK3576
+MACHINE_ID: 007
+MANUFACTURER: RK3576
+MAGIC: 0x5041524B
+ATAG: 0x00200800
+MACHINE: 0xffffffff
+CHECK_MASK: 0x80
+PWR_HLD: 0,0,A,0,1
+TYPE: GPT
+GROW_ALIGN: 0
+CMDLINE: mtdparts=:0x00002000@0x00004000(uboot),0x00002000@0x00006000(misc),0x00040000@0x00008000(boot_a),0x00040000@0x00048000(boot_b),0x00010000@0x00088000(backup),0x00800000@0x00098000(system_a),0x00800000@0x00898000(system_b),0x00040000@0x01098000(oem),-@0x010d8000(userdata:grow)

@@ -60,13 +60,30 @@ jobs:
       - name: exercise every rule in both directions
         run: ./.claude/hooks/record-integrity-control.sh
 
+  partitions:
+    name: partition table
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - name: validate every board's table
+        run: |
+          for t in boards/*/parameter.txt; do
+            [ -e "$t" ] || continue
+            ./ci/check-partitions.py "$t"
+          done
+      - name: control
+        run: |
+          git config user.name ci
+          git config user.email ci@localhost
+          ./ci/check-partitions-control.sh
+
   # The gate exists because a warning job that exits 0 is not execution. This
   # reads the actual results of the jobs it names; it cannot be satisfied by a
   # job that merely ran and said something reassuring.
   gate:
     name: gate
     if: always()
-    needs: [board-lint, board-lint-control, record-integrity-control]
+    needs: [board-lint, board-lint-control, record-integrity-control, partitions]
     runs-on: ubuntu-24.04
     steps:
       - name: verdict
@@ -75,7 +92,7 @@ jobs:
         run: |
           echo "$RESULTS"
           fail=0
-          for job in board-lint board-lint-control record-integrity-control; do
+          for job in board-lint board-lint-control record-integrity-control partitions; do
             r=$(printf '%s' "$RESULTS" | python3 -c \
               "import json,sys;print(json.load(sys.stdin)['$job']['result'])")
             case "$r" in
