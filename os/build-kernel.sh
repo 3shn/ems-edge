@@ -152,9 +152,11 @@ if [ "$config_only" -eq 1 ]; then
   exit 0
 fi
 
+dtb=$(y boot_artifacts.dtb)
 echo
 echo "building with -j$jobs ..."
-time make -C "$tree" O=../obj -j"$jobs" Image dtbs modules
+echo "  targets: Image, $dtb, modules"
+time make -C "$tree" O=../obj -j"$jobs" Image "$dtb" modules
 
 echo
 echo "artefacts:"

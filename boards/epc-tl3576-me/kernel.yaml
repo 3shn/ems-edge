@@ -19,6 +19,15 @@ config_fragments:
 boot_artifacts:
   boot: boot.img
   boot_rt: boot-rt.img        # PREEMPT_RT variant, not used yet
+  # Build this one device tree, not `make dtbs`.
+  #
+  # The vendor's arch/arm64/boot/dts/rockchip/Makefile lists boards whose source
+  # they did not ship -- `epc-tl3588-bu.dtb` among them, which is RK3588, a
+  # different SoC entirely. `make dtbs` therefore fails on a tree that is
+  # otherwise fine (observed in CI, run 34341… , 2026-09-10). Building only the
+  # DTB this board actually boots sidesteps a vendor packaging bug and avoids
+  # compiling a couple of hundred device trees we will never load.
+  dtb: arch/arm64/boot/dts/rockchip/epc-tl3576-me.dtb
 
 reference:
   # The vendor's prebuilt boot.img, kept only to diff against ours.
