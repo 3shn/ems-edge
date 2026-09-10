@@ -136,9 +136,25 @@ fi
 # which is why this asserts rather than reports.
 echo
 echo "verifying the config delta actually applied:"
+# Both directions of the delta are checked. An earlier version skipped every
+# comment line, which silently meant the options we *disable* were never
+# verified -- half a delta asserted and reported as the whole one.
 missing=0
 while read -r line; do
-  case "$line" in \#*|"") continue ;; esac
+  case "$line" in
+    "") continue ;;
+    "# CONFIG_"*" is not set")
+      opt="${line#\# }"; opt="${opt%% is not set}"
+      if grep -qx "# $opt is not set" "$out/obj/.config"; then
+        printf '  %-34s %s\n' "$opt" "n"
+      else
+        actual=$(grep -E "^$opt=" "$out/obj/.config" || echo absent)
+        printf '  %-34s WANTED n, GOT %s\n' "$opt" "${actual:-absent}"
+        missing=1
+      fi
+      continue ;;
+    \#*) continue ;;
+  esac
   opt="${line%%=*}"; val="${line#*=}"
   if grep -qx "$opt=$val" "$out/obj/.config"; then
     printf '  %-34s %s\n' "$opt" "$val"
