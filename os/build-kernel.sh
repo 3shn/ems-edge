@@ -59,10 +59,14 @@ mkdir -p "$out"
 
 # Refuse to build into a RAM-backed filesystem.
 #
-# A kernel object tree is 15-25 GB. On tmpfs every one of those bytes is an
-# unevictable page: unlike the page cache, the kernel cannot drop it under
-# pressure, only push it to swap. So a box with plenty of RAM OOMs anyway,
-# having spent its memory on a filesystem instead of on the compiler.
+# On tmpfs every byte of the object tree is an unevictable page: unlike the page
+# cache, the kernel cannot drop it under pressure, only push it to swap.
+#
+# Honest sizing: this config is 2009 built-in against 155 modules with
+# DEBUG_INFO_REDUCED, so its object tree is a few GB, not the tens of GB an
+# allmodconfig build produces. It would fit the tmpfs on this host. The guard is
+# cheap insurance for a bigger config or a smaller box, not a fix for an
+# incident -- no OOM has ever been attributed to this.
 #
 # Not hypothetical -- 3shn/nix records it in modules/powerful-server.nix: a
 # `cargo test --workspace` overflowed a fresh 4 GiB tmpfs on ai-gateway
@@ -75,7 +79,7 @@ out_fs=$(findmnt -no FSTYPE -T "$out" 2>/dev/null || echo unknown)
 case "$out_fs" in
   tmpfs|ramfs)
     echo "refusing to build in $out: it is on $out_fs (RAM-backed)" >&2
-    echo "A kernel object tree is 15-25 GB of unevictable pages there." >&2
+    echo "Object trees are unevictable pages there, and tmpfs is lost on reboot." >&2
     echo "Pass --out with a path on a disk-backed filesystem." >&2
     exit 7 ;;
 esac

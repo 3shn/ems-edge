@@ -37,7 +37,7 @@ Executed local checks over the tracked tree and reachable history.
 | Item | State | What would settle it |
 |---|---|---|
 | **GPL corresponding-source mechanism** | PARTLY | Release `bsp-v2.1` (2026-09-10) publishes the vendor kernel and U-Boot source, which discharges §3(a) for the vendor tree. Still missing: a per-release bundle pinned to what each shipped image actually contains, including our own patches. |
-| **Employer-IP boundary** | NOT_RUN | The project began in a commercial EMS context and is now designated a post-exit personal asset. Raised before the transfer and reaffirmed by the operator; proceeding on that decision. No technical check can close this one, and publication does not settle it. |
+| **Employer-IP boundary** | RESOLVED 2026-09-10 | Ruled by the operator: **this is personal IP.** The company structure does not reduce to "employer pays, employer owns", and the operator holds the facts that decide it. The work may later be assigned to a new venture or to LibreVPP. Recorded as a decision, not an assumption, so nobody re-opens it from the outside. |
 | **"Zero diffs outside `boards/**`" is unproven** | NOT_RUN | One profile cannot falsify the claim the repository exists to make. A second profile with a genuinely different flash path (Sige5: mainline U-Boot, no maskrom) would. Until then the README describes it as the design intention, which is what it is. |
 
 ## Defects found while doing this, kept because they are the useful part
