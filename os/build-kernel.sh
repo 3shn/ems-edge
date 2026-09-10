@@ -56,6 +56,30 @@ echo "kernel:   $version ($tarball_name)"
 echo "fragments:"; printf '  %s\n' "${fragments[@]}"
 
 mkdir -p "$out"
+
+# Refuse to build into a RAM-backed filesystem.
+#
+# A kernel object tree is 15-25 GB. On tmpfs every one of those bytes is an
+# unevictable page: unlike the page cache, the kernel cannot drop it under
+# pressure, only push it to swap. So a box with plenty of RAM OOMs anyway,
+# having spent its memory on a filesystem instead of on the compiler.
+#
+# Not hypothetical -- 3shn/nix records it in modules/powerful-server.nix: a
+# `cargo test --workspace` overflowed a fresh 4 GiB tmpfs on ai-gateway
+# (2026-07-03, ENOSPC mid-compile, ld.lld SIGBUS on mmap). The fix there was to
+# bind-mount the runner work dir to disk.
+#
+# You do not need a RAM disk to use RAM for build I/O: the page cache already
+# does that, for free, and hands it back when something else needs it.
+out_fs=$(findmnt -no FSTYPE -T "$out" 2>/dev/null || echo unknown)
+case "$out_fs" in
+  tmpfs|ramfs)
+    echo "refusing to build in $out: it is on $out_fs (RAM-backed)" >&2
+    echo "A kernel object tree is 15-25 GB of unevictable pages there." >&2
+    echo "Pass --out with a path on a disk-backed filesystem." >&2
+    exit 7 ;;
+esac
+echo "build dir:   $out ($out_fs)"
 src_tar="${BSP_KERNEL_TARBALL:-}"
 if [ -z "$src_tar" ]; then
   [ -n "${BSP_KERNEL_URL:-}" ] || {
