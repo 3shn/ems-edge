@@ -27,7 +27,10 @@ boot_artifacts:
   # otherwise fine (observed in CI, run 34341… , 2026-09-10). Building only the
   # DTB this board actually boots sidesteps a vendor packaging bug and avoids
   # compiling a couple of hundred device trees we will never load.
-  dtb: arch/arm64/boot/dts/rockchip/epc-tl3576-me.dtb
+  # Relative to arch/$ARCH/boot/dts/ -- the kernel Makefile prefixes that
+  # itself, and passing the full path yields
+  # 'arch/arm64/boot/dts/arch/arm64/boot/dts/rockchip/...' and no rule to make it.
+  dtb: rockchip/epc-tl3576-me.dtb
 
 reference:
   # The vendor's prebuilt boot.img, kept only to diff against ours.
