@@ -144,13 +144,20 @@ while read -r line; do
   case "$line" in
     "") continue ;;
     "# CONFIG_"*" is not set")
+      # The requirement is "not enabled", and Kconfig expresses that two ways.
+      # An option can be written "# CONFIG_X is not set", or -- when its parent
+      # symbol is disabled -- dropped from the file entirely. Absent is disabled.
+      # Only an actual =y or =m is a failure. An earlier version demanded the
+      # literal "is not set" line and so failed on the sub-options of a symbol it
+      # had itself just turned off.
       opt="${line#\# }"; opt="${opt%% is not set}"
-      if grep -qx "# $opt is not set" "$out/obj/.config"; then
+      if enabled=$(grep -E "^$opt=(y|m)$" "$out/obj/.config"); then
+        printf '  %-34s WANTED n, GOT %s\n' "$opt" "$enabled"
+        missing=1
+      elif grep -qx "# $opt is not set" "$out/obj/.config"; then
         printf '  %-34s %s\n' "$opt" "n"
       else
-        actual=$(grep -E "^$opt=" "$out/obj/.config" || echo absent)
-        printf '  %-34s WANTED n, GOT %s\n' "$opt" "${actual:-absent}"
-        missing=1
+        printf '  %-34s %s\n' "$opt" "n (absent; parent disabled)"
       fi
       continue ;;
     \#*) continue ;;
